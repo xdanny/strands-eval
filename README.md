@@ -15,6 +15,22 @@ A comprehensive evaluation framework for SQL agents using **Strands**, **DeepEva
 
 ### 1. Installation
 
+#### Using Makefile (Easiest! ⚡)
+
+```bash
+# One command to set everything up
+make setup
+
+# Activate environment
+source .venv/bin/activate
+
+# Install dependencies
+make install
+
+# Done! Now configure your .env file
+cp .env.example .env
+```
+
 #### Using uv (Recommended - Fast!)
 
 ```bash
@@ -84,6 +100,28 @@ class MyCustomSqlAgent(SqlAgentRunner):
 ```
 
 ### 4. Run Evaluations
+
+#### Using Makefile (Easiest!)
+
+```bash
+# Run simple tests
+make test-simple
+
+# Run all tests
+make test
+
+# Run by difficulty
+make test-medium
+make test-complex
+
+# Run benchmark only
+make benchmark
+
+# Check configuration
+make check-config
+```
+
+#### Using pytest directly
 
 ```bash
 # Run all tests

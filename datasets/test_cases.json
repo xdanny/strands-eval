@@ -1,0 +1,368 @@
+{
+  "test_cases": [
+    {
+      "id": "simple_dau_001",
+      "difficulty": "simple",
+      "question": "What was the number of daily active users yesterday?",
+      "expected_sql": "SELECT COUNT(DISTINCT user_id) AS daily_active_users\nFROM events\nWHERE DATE(event_timestamp) = CURRENT_DATE - INTERVAL '1' DAY",
+      "expected_context": [
+        "events table contains user_id column",
+        "event_timestamp is used to filter by date",
+        "Need to count DISTINCT users to avoid duplicates"
+      ],
+      "expected_answer_contains": ["daily active users", "count", "yesterday"],
+      "sql_criteria": {
+        "must_use_tables": ["events"],
+        "must_use_columns": ["user_id", "event_timestamp"],
+        "must_have_distinct": true,
+        "must_filter_by_date": true
+      }
+    },
+    {
+      "id": "simple_count_002",
+      "difficulty": "simple",
+      "question": "How many users signed up in the last 7 days?",
+      "expected_sql": "SELECT COUNT(*) AS new_users\nFROM users\nWHERE created_at >= CURRENT_DATE - INTERVAL '7' DAY",
+      "expected_context": [
+        "users table has created_at timestamp",
+        "Filter on created_at for signup date"
+      ],
+      "expected_answer_contains": ["users", "signed up", "7 days"],
+      "sql_criteria": {
+        "must_use_tables": ["users"],
+        "must_use_columns": ["created_at"],
+        "must_filter_by_date": true
+      }
+    },
+    {
+      "id": "medium_revenue_003",
+      "difficulty": "medium",
+      "question": "What was the total revenue by product category in Q4 2024?",
+      "expected_sql": "SELECT \n  p.category,\n  SUM(pu.amount_usd) AS total_revenue\nFROM purchases pu\nJOIN products p ON pu.product_id = p.product_id\nWHERE pu.purchase_timestamp >= '2024-10-01'\n  AND pu.purchase_timestamp < '2025-01-01'\nGROUP BY p.category\nORDER BY total_revenue DESC",
+      "expected_context": [
+        "purchases table has amount_usd for revenue",
+        "products table has category information",
+        "Need to JOIN purchases and products on product_id",
+        "Q4 2024 is October 1 - December 31, 2024"
+      ],
+      "expected_answer_contains": ["revenue", "category", "Q4"],
+      "sql_criteria": {
+        "must_use_tables": ["purchases", "products"],
+        "must_join": true,
+        "must_group_by": ["category"],
+        "must_aggregate": ["SUM"]
+      }
+    },
+    {
+      "id": "medium_inactive_004",
+      "difficulty": "medium",
+      "question": "Find all users who haven't logged in for more than 30 days",
+      "expected_sql": "SELECT \n  user_id,\n  email,\n  last_login_at,\n  DATEDIFF(CURRENT_DATE, last_login_at) AS days_since_login\nFROM users\nWHERE last_login_at < CURRENT_DATE - INTERVAL '30' DAY\n  AND is_active = true\nORDER BY last_login_at ASC",
+      "expected_context": [
+        "users table has last_login_at timestamp",
+        "Should filter for active users only",
+        "Calculate days since last login"
+      ],
+      "expected_answer_contains": ["users", "haven't logged in", "30 days"],
+      "sql_criteria": {
+        "must_use_tables": ["users"],
+        "must_use_columns": ["last_login_at", "is_active"],
+        "must_filter_by_date": true
+      }
+    },
+    {
+      "id": "medium_session_avg_005",
+      "difficulty": "medium",
+      "question": "What is the average session duration by device type for the last month?",
+      "expected_sql": "SELECT \n  device_type,\n  AVG(duration_seconds) AS avg_duration_seconds,\n  COUNT(*) AS session_count\nFROM sessions\nWHERE session_start >= CURRENT_DATE - INTERVAL '30' DAY\nGROUP BY device_type\nORDER BY avg_duration_seconds DESC",
+      "expected_context": [
+        "sessions table has duration_seconds",
+        "device_type column categorizes sessions",
+        "Filter for last 30 days using session_start"
+      ],
+      "expected_answer_contains": ["average", "session duration", "device"],
+      "sql_criteria": {
+        "must_use_tables": ["sessions"],
+        "must_group_by": ["device_type"],
+        "must_aggregate": ["AVG"]
+      }
+    },
+    {
+      "id": "complex_cohort_006",
+      "difficulty": "complex",
+      "question": "Show me the month-over-month retention rate for users who signed up in January 2024",
+      "expected_sql": "WITH jan_cohort AS (\n  SELECT user_id\n  FROM users\n  WHERE cohort = '2024-01'\n),\nmonthly_activity AS (\n  SELECT \n    jc.user_id,\n    DATE_TRUNC('month', e.event_timestamp) AS activity_month,\n    COUNT(*) AS event_count\n  FROM jan_cohort jc\n  LEFT JOIN events e ON jc.user_id = e.user_id\n  WHERE DATE(e.event_timestamp) >= '2024-01-01'\n  GROUP BY jc.user_id, DATE_TRUNC('month', e.event_timestamp)\n)\nSELECT \n  activity_month,\n  COUNT(DISTINCT user_id) AS active_users,\n  COUNT(DISTINCT user_id) * 100.0 / (SELECT COUNT(*) FROM jan_cohort) AS retention_rate\nFROM monthly_activity\nGROUP BY activity_month\nORDER BY activity_month",
+      "expected_context": [
+        "cohort column in users table identifies signup month",
+        "Need to track user activity month by month",
+        "Retention is active users / total cohort size",
+        "Use CTE for cohort definition"
+      ],
+      "expected_answer_contains": ["retention", "January 2024", "month"],
+      "sql_criteria": {
+        "must_use_tables": ["users", "events"],
+        "must_use_cte": true,
+        "must_join": true,
+        "must_aggregate": ["COUNT"]
+      }
+    },
+    {
+      "id": "complex_funnel_007",
+      "difficulty": "complex",
+      "question": "Build a conversion funnel showing users who viewed products, added to cart, and completed purchase in the last week",
+      "expected_sql": "WITH funnel_events AS (\n  SELECT \n    user_id,\n    MAX(CASE WHEN event_type = 'product_view' THEN 1 ELSE 0 END) AS viewed_product,\n    MAX(CASE WHEN event_type = 'add_to_cart' THEN 1 ELSE 0 END) AS added_to_cart,\n    MAX(CASE WHEN event_type = 'purchase' THEN 1 ELSE 0 END) AS completed_purchase\n  FROM events\n  WHERE event_timestamp >= CURRENT_DATE - INTERVAL '7' DAY\n  GROUP BY user_id\n)\nSELECT \n  SUM(viewed_product) AS step1_product_views,\n  SUM(added_to_cart) AS step2_add_to_cart,\n  SUM(completed_purchase) AS step3_purchases,\n  SUM(added_to_cart) * 100.0 / NULLIF(SUM(viewed_product), 0) AS view_to_cart_rate,\n  SUM(completed_purchase) * 100.0 / NULLIF(SUM(added_to_cart), 0) AS cart_to_purchase_rate\nFROM funnel_events",
+      "expected_context": [
+        "events table contains event_type column",
+        "Need to track three stages: view, cart, purchase",
+        "Calculate conversion rates between stages",
+        "Use CASE statements to pivot event types"
+      ],
+      "expected_answer_contains": ["funnel", "conversion", "viewed", "cart", "purchase"],
+      "sql_criteria": {
+        "must_use_tables": ["events"],
+        "must_use_cte": true,
+        "must_aggregate": ["SUM"],
+        "must_have_case_statement": true
+      }
+    },
+    {
+      "id": "complex_attribution_008",
+      "difficulty": "complex",
+      "question": "What is the revenue attributed to each marketing source using last-touch attribution for the last quarter?",
+      "expected_sql": "WITH last_touch AS (\n  SELECT \n    pu.user_id,\n    pu.purchase_id,\n    pu.amount_usd,\n    s.utm_source,\n    ROW_NUMBER() OVER (PARTITION BY pu.purchase_id ORDER BY s.session_start DESC) AS rn\n  FROM purchases pu\n  JOIN sessions s ON pu.user_id = s.user_id\n  WHERE pu.purchase_timestamp >= CURRENT_DATE - INTERVAL '90' DAY\n    AND s.session_start <= pu.purchase_timestamp\n)\nSELECT \n  utm_source,\n  COUNT(DISTINCT purchase_id) AS purchases,\n  SUM(amount_usd) AS attributed_revenue\nFROM last_touch\nWHERE rn = 1\nGROUP BY utm_source\nORDER BY attributed_revenue DESC",
+      "expected_context": [
+        "sessions table has utm_source for attribution",
+        "Last-touch means the most recent session before purchase",
+        "Need to join purchases and sessions on user_id",
+        "Filter sessions that occurred before purchase"
+      ],
+      "expected_answer_contains": ["revenue", "marketing", "attribution", "last-touch"],
+      "sql_criteria": {
+        "must_use_tables": ["purchases", "sessions"],
+        "must_use_cte": true,
+        "must_use_window_function": true,
+        "must_join": true
+      }
+    },
+    {
+      "id": "medium_tier_revenue_009",
+      "difficulty": "medium",
+      "question": "Compare average purchase value across different subscription tiers",
+      "expected_sql": "SELECT \n  u.subscription_tier,\n  COUNT(DISTINCT pu.purchase_id) AS total_purchases,\n  AVG(pu.amount_usd) AS avg_purchase_value,\n  SUM(pu.amount_usd) AS total_revenue\nFROM purchases pu\nJOIN users u ON pu.user_id = u.user_id\nGROUP BY u.subscription_tier\nORDER BY total_revenue DESC",
+      "expected_context": [
+        "users table has subscription_tier",
+        "purchases table has amount_usd",
+        "Join on user_id to connect subscriptions with purchases"
+      ],
+      "expected_answer_contains": ["average", "purchase", "subscription tier"],
+      "sql_criteria": {
+        "must_use_tables": ["purchases", "users"],
+        "must_join": true,
+        "must_group_by": ["subscription_tier"],
+        "must_aggregate": ["AVG", "SUM"]
+      }
+    },
+    {
+      "id": "medium_geographic_010",
+      "difficulty": "medium",
+      "question": "Which countries have the highest engagement measured by events per user?",
+      "expected_sql": "SELECT \n  u.country,\n  COUNT(DISTINCT e.user_id) AS unique_users,\n  COUNT(e.event_id) AS total_events,\n  COUNT(e.event_id) * 1.0 / COUNT(DISTINCT e.user_id) AS events_per_user\nFROM events e\nJOIN users u ON e.user_id = u.user_id\nGROUP BY u.country\nHAVING COUNT(DISTINCT e.user_id) >= 100\nORDER BY events_per_user DESC\nLIMIT 10",
+      "expected_context": [
+        "users table has country information",
+        "events table tracks all user interactions",
+        "Calculate ratio of events to users",
+        "Filter countries with minimum user threshold"
+      ],
+      "expected_answer_contains": ["countries", "engagement", "events per user"],
+      "sql_criteria": {
+        "must_use_tables": ["events", "users"],
+        "must_join": true,
+        "must_group_by": ["country"],
+        "must_have_having": true
+      }
+    },
+    {
+      "id": "complex_churn_011",
+      "difficulty": "complex",
+      "question": "Calculate the 30-day churn rate for each cohort in 2024",
+      "expected_sql": "WITH cohort_users AS (\n  SELECT \n    cohort,\n    user_id,\n    created_at\n  FROM users\n  WHERE YEAR(created_at) = 2024\n),\nchurned_users AS (\n  SELECT \n    cu.cohort,\n    cu.user_id\n  FROM cohort_users cu\n  LEFT JOIN events e ON cu.user_id = e.user_id \n    AND e.event_timestamp >= cu.created_at + INTERVAL '1' DAY\n    AND e.event_timestamp <= cu.created_at + INTERVAL '30' DAY\n  GROUP BY cu.cohort, cu.user_id\n  HAVING COUNT(e.event_id) = 0\n)\nSELECT \n  cu.cohort,\n  COUNT(DISTINCT cu.user_id) AS cohort_size,\n  COUNT(DISTINCT ch.user_id) AS churned_users,\n  COUNT(DISTINCT ch.user_id) * 100.0 / COUNT(DISTINCT cu.user_id) AS churn_rate\nFROM cohort_users cu\nLEFT JOIN churned_users ch ON cu.cohort = ch.cohort AND cu.user_id = ch.user_id\nGROUP BY cu.cohort\nORDER BY cu.cohort",
+      "expected_context": [
+        "Churn means users who didn't return within 30 days",
+        "cohort identifies signup month",
+        "Check for absence of events in 30-day window",
+        "Calculate percentage of users who churned"
+      ],
+      "expected_answer_contains": ["churn rate", "cohort", "30-day"],
+      "sql_criteria": {
+        "must_use_tables": ["users", "events"],
+        "must_use_cte": true,
+        "must_join": true,
+        "must_have_having": true
+      }
+    },
+    {
+      "id": "simple_product_012",
+      "difficulty": "simple",
+      "question": "List all active products in the 'software' category",
+      "expected_sql": "SELECT \n  product_id,\n  product_name,\n  price_usd\nFROM products\nWHERE category = 'software'\n  AND is_active = true\nORDER BY product_name",
+      "expected_context": [
+        "products table has category column",
+        "is_active flag filters for available products"
+      ],
+      "expected_answer_contains": ["products", "software", "active"],
+      "sql_criteria": {
+        "must_use_tables": ["products"],
+        "must_use_columns": ["category", "is_active"]
+      }
+    },
+    {
+      "id": "medium_session_conversion_013",
+      "difficulty": "medium",
+      "question": "What is the conversion rate by traffic source for the last 30 days?",
+      "expected_sql": "SELECT \n  utm_source,\n  COUNT(*) AS total_sessions,\n  SUM(CASE WHEN converted = true THEN 1 ELSE 0 END) AS converted_sessions,\n  SUM(CASE WHEN converted = true THEN 1 ELSE 0 END) * 100.0 / COUNT(*) AS conversion_rate\nFROM sessions\nWHERE session_start >= CURRENT_DATE - INTERVAL '30' DAY\n  AND utm_source IS NOT NULL\nGROUP BY utm_source\nORDER BY conversion_rate DESC",
+      "expected_context": [
+        "sessions table has converted boolean flag",
+        "utm_source identifies traffic source",
+        "Calculate percentage of converted sessions"
+      ],
+      "expected_answer_contains": ["conversion rate", "traffic source"],
+      "sql_criteria": {
+        "must_use_tables": ["sessions"],
+        "must_group_by": ["utm_source"],
+        "must_have_case_statement": true
+      }
+    },
+    {
+      "id": "complex_margin_014",
+      "difficulty": "complex",
+      "question": "Calculate profit margin by product category, accounting for discounts",
+      "expected_sql": "SELECT \n  p.category,\n  SUM(pu.amount_usd - pu.discount_amount_usd) AS net_revenue,\n  SUM((pu.amount_usd - pu.discount_amount_usd) - (p.cost_usd * pu.quantity)) AS gross_profit,\n  (SUM((pu.amount_usd - pu.discount_amount_usd) - (p.cost_usd * pu.quantity)) / \n   NULLIF(SUM(pu.amount_usd - pu.discount_amount_usd), 0)) * 100 AS profit_margin_pct\nFROM purchases pu\nJOIN products p ON pu.product_id = p.product_id\nGROUP BY p.category\nORDER BY gross_profit DESC",
+      "expected_context": [
+        "products table has cost_usd for margin calculation",
+        "purchases table has discount_amount_usd",
+        "Profit = (Revenue - Discount) - (Cost * Quantity)",
+        "Margin = Profit / Net Revenue"
+      ],
+      "expected_answer_contains": ["profit margin", "category", "discount"],
+      "sql_criteria": {
+        "must_use_tables": ["purchases", "products"],
+        "must_join": true,
+        "must_group_by": ["category"],
+        "must_aggregate": ["SUM"]
+      }
+    },
+    {
+      "id": "medium_weekly_trend_015",
+      "difficulty": "medium",
+      "question": "Show the weekly trend of new user signups for the last 3 months",
+      "expected_sql": "SELECT \n  DATE_TRUNC('week', created_at) AS signup_week,\n  COUNT(*) AS new_users\nFROM users\nWHERE created_at >= CURRENT_DATE - INTERVAL '90' DAY\nGROUP BY DATE_TRUNC('week', created_at)\nORDER BY signup_week",
+      "expected_context": [
+        "users table has created_at for signup date",
+        "Use DATE_TRUNC to group by week",
+        "Last 3 months is approximately 90 days"
+      ],
+      "expected_answer_contains": ["weekly", "signups", "trend"],
+      "sql_criteria": {
+        "must_use_tables": ["users"],
+        "must_use_columns": ["created_at"],
+        "must_group_by": ["DATE_TRUNC('week', created_at)"]
+      }
+    },
+    {
+      "id": "complex_ltv_016",
+      "difficulty": "complex",
+      "question": "Calculate lifetime value (LTV) by acquisition source for users acquired in 2024",
+      "expected_sql": "WITH user_acquisition AS (\n  SELECT DISTINCT\n    s.user_id,\n    FIRST_VALUE(s.utm_source) OVER (PARTITION BY s.user_id ORDER BY s.session_start ASC) AS acquisition_source\n  FROM sessions s\n  JOIN users u ON s.user_id = u.user_id\n  WHERE YEAR(u.created_at) = 2024\n),\nuser_revenue AS (\n  SELECT \n    user_id,\n    SUM(amount_usd) AS total_revenue\n  FROM purchases\n  GROUP BY user_id\n)\nSELECT \n  ua.acquisition_source,\n  COUNT(DISTINCT ua.user_id) AS total_users,\n  SUM(COALESCE(ur.total_revenue, 0)) AS total_ltv,\n  AVG(COALESCE(ur.total_revenue, 0)) AS avg_ltv_per_user\nFROM user_acquisition ua\nLEFT JOIN user_revenue ur ON ua.user_id = ur.user_id\nWHERE ua.acquisition_source IS NOT NULL\nGROUP BY ua.acquisition_source\nORDER BY avg_ltv_per_user DESC",
+      "expected_context": [
+        "First session's utm_source is acquisition source",
+        "LTV is total revenue generated by a user",
+        "Use window function FIRST_VALUE to get first touch",
+        "Some users may have zero revenue"
+      ],
+      "expected_answer_contains": ["lifetime value", "LTV", "acquisition source"],
+      "sql_criteria": {
+        "must_use_tables": ["sessions", "users", "purchases"],
+        "must_use_cte": true,
+        "must_use_window_function": true,
+        "must_join": true
+      }
+    },
+    {
+      "id": "medium_time_to_purchase_017",
+      "difficulty": "medium",
+      "question": "What is the average time between user signup and first purchase?",
+      "expected_sql": "WITH first_purchases AS (\n  SELECT \n    user_id,\n    MIN(purchase_timestamp) AS first_purchase_at\n  FROM purchases\n  GROUP BY user_id\n)\nSELECT \n  AVG(DATEDIFF(fp.first_purchase_at, u.created_at)) AS avg_days_to_first_purchase,\n  PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY DATEDIFF(fp.first_purchase_at, u.created_at)) AS median_days_to_first_purchase\nFROM users u\nJOIN first_purchases fp ON u.user_id = fp.user_id",
+      "expected_context": [
+        "users.created_at is signup date",
+        "Find first purchase per user",
+        "Calculate time difference in days",
+        "Use both average and median for better insight"
+      ],
+      "expected_answer_contains": ["average time", "signup", "first purchase"],
+      "sql_criteria": {
+        "must_use_tables": ["users", "purchases"],
+        "must_use_cte": true,
+        "must_join": true,
+        "must_aggregate": ["AVG", "MIN"]
+      }
+    },
+    {
+      "id": "complex_product_affinity_018",
+      "difficulty": "complex",
+      "question": "Find products frequently purchased together (market basket analysis)",
+      "expected_sql": "WITH purchase_pairs AS (\n  SELECT \n    p1.user_id,\n    p1.product_id AS product_a,\n    p2.product_id AS product_b,\n    p1.purchase_timestamp\n  FROM purchases p1\n  JOIN purchases p2 ON p1.user_id = p2.user_id \n    AND p1.purchase_id != p2.purchase_id\n    AND ABS(DATEDIFF(p1.purchase_timestamp, p2.purchase_timestamp)) <= 1\n  WHERE p1.product_id < p2.product_id\n)\nSELECT \n  pr1.product_name AS product_a_name,\n  pr2.product_name AS product_b_name,\n  COUNT(*) AS times_purchased_together,\n  COUNT(*) * 100.0 / (SELECT COUNT(DISTINCT user_id) FROM purchases) AS support_pct\nFROM purchase_pairs pp\nJOIN products pr1 ON pp.product_a = pr1.product_id\nJOIN products pr2 ON pp.product_b = pr2.product_id\nGROUP BY pr1.product_name, pr2.product_name\nHAVING COUNT(*) >= 5\nORDER BY times_purchased_together DESC\nLIMIT 20",
+      "expected_context": [
+        "Self-join purchases to find co-purchases",
+        "Products purchased within 1 day window",
+        "Calculate support metric (frequency)",
+        "Avoid duplicate pairs (A,B) and (B,A)"
+      ],
+      "expected_answer_contains": ["products", "purchased together", "frequently"],
+      "sql_criteria": {
+        "must_use_tables": ["purchases", "products"],
+        "must_use_cte": true,
+        "must_join": true,
+        "must_have_having": true,
+        "must_self_join": true
+      }
+    },
+    {
+      "id": "medium_mobile_desktop_019",
+      "difficulty": "medium",
+      "question": "Compare purchase conversion rates between mobile and desktop users",
+      "expected_sql": "SELECT \n  s.device_type,\n  COUNT(DISTINCT s.session_id) AS total_sessions,\n  COUNT(DISTINCT p.purchase_id) AS total_purchases,\n  COUNT(DISTINCT p.purchase_id) * 100.0 / COUNT(DISTINCT s.session_id) AS purchase_conversion_rate\nFROM sessions s\nLEFT JOIN purchases p ON s.session_id = p.session_id\nWHERE s.device_type IN ('mobile', 'desktop')\nGROUP BY s.device_type\nORDER BY purchase_conversion_rate DESC",
+      "expected_context": [
+        "sessions table has device_type",
+        "purchases are linked to sessions",
+        "Conversion = purchases / sessions",
+        "Use LEFT JOIN to include sessions without purchases"
+      ],
+      "expected_answer_contains": ["conversion rate", "mobile", "desktop"],
+      "sql_criteria": {
+        "must_use_tables": ["sessions", "purchases"],
+        "must_join": true,
+        "must_group_by": ["device_type"]
+      }
+    },
+    {
+      "id": "simple_top_products_020",
+      "difficulty": "simple",
+      "question": "What are the top 5 best-selling products by quantity in the last month?",
+      "expected_sql": "SELECT \n  p.product_name,\n  SUM(pu.quantity) AS total_quantity_sold,\n  COUNT(DISTINCT pu.purchase_id) AS number_of_orders\nFROM purchases pu\nJOIN products p ON pu.product_id = p.product_id\nWHERE pu.purchase_timestamp >= CURRENT_DATE - INTERVAL '30' DAY\nGROUP BY p.product_name\nORDER BY total_quantity_sold DESC\nLIMIT 5",
+      "expected_context": [
+        "purchases table has quantity column",
+        "Join with products to get product names",
+        "Filter for last 30 days",
+        "Sum quantities and order by total"
+      ],
+      "expected_answer_contains": ["top", "best-selling", "products"],
+      "sql_criteria": {
+        "must_use_tables": ["purchases", "products"],
+        "must_join": true,
+        "must_group_by": ["product_name"],
+        "must_aggregate": ["SUM"],
+        "must_have_limit": true
+      }
+    }
+  ]
+}

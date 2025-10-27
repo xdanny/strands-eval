@@ -1,0 +1,225 @@
+{
+  "description": "Expected context that should be retrieved by RAG system for each test case",
+  "contexts": {
+    "simple_dau_001": {
+      "required_context": [
+        "The events table contains all user interactions with columns: event_id, user_id, session_id, event_type, event_timestamp, page_url, properties, device_type, country",
+        "To count daily active users, use COUNT(DISTINCT user_id) to avoid counting the same user multiple times",
+        "Filter by DATE(event_timestamp) to get events for a specific day",
+        "Use CURRENT_DATE - INTERVAL '1' DAY to get yesterday's date"
+      ],
+      "relevant_tables": ["events"],
+      "relevant_columns": ["user_id", "event_timestamp"]
+    },
+    "simple_count_002": {
+      "required_context": [
+        "The users table stores user information including created_at timestamp for when they signed up",
+        "Filter on created_at column to find users who signed up in a date range",
+        "Use INTERVAL syntax for relative date filtering"
+      ],
+      "relevant_tables": ["users"],
+      "relevant_columns": ["created_at"]
+    },
+    "medium_revenue_003": {
+      "required_context": [
+        "Revenue data is in the purchases table with amount_usd column",
+        "Product categories are in the products table",
+        "JOIN purchases and products on product_id to connect revenue with categories",
+        "Q4 2024 means October 1, 2024 to December 31, 2024",
+        "Use GROUP BY category and SUM(amount_usd) for totals"
+      ],
+      "relevant_tables": ["purchases", "products"],
+      "relevant_columns": ["amount_usd", "category", "product_id", "purchase_timestamp"]
+    },
+    "medium_inactive_004": {
+      "required_context": [
+        "The users table has last_login_at timestamp tracking most recent login",
+        "is_active boolean indicates if user account is currently active",
+        "Filter for users where last_login_at is more than 30 days ago",
+        "Should only look at active users (is_active = true)"
+      ],
+      "relevant_tables": ["users"],
+      "relevant_columns": ["last_login_at", "is_active", "user_id", "email"]
+    },
+    "medium_session_avg_005": {
+      "required_context": [
+        "The sessions table contains duration_seconds for session length",
+        "device_type column categorizes sessions as mobile, desktop, or tablet",
+        "Use AVG(duration_seconds) to calculate average",
+        "Filter by session_start for date ranges",
+        "GROUP BY device_type to see breakdown"
+      ],
+      "relevant_tables": ["sessions"],
+      "relevant_columns": ["duration_seconds", "device_type", "session_start"]
+    },
+    "complex_cohort_006": {
+      "required_context": [
+        "The users table has a cohort column in YYYY-MM format identifying signup month",
+        "Retention means users who remain active in subsequent months",
+        "Use a CTE to define the January 2024 cohort (cohort = '2024-01')",
+        "Track user activity month by month using events table",
+        "Calculate retention rate as (active users in month) / (total cohort size) * 100"
+      ],
+      "relevant_tables": ["users", "events"],
+      "relevant_columns": ["cohort", "user_id", "event_timestamp"]
+    },
+    "complex_funnel_007": {
+      "required_context": [
+        "The events table has event_type column for different user actions",
+        "Funnel stages: 'product_view' -> 'add_to_cart' -> 'purchase'",
+        "Use CASE statements with MAX to create binary flags per user",
+        "Calculate conversion rates between stages",
+        "Use CTE to organize funnel logic"
+      ],
+      "relevant_tables": ["events"],
+      "relevant_columns": ["user_id", "event_type", "event_timestamp"]
+    },
+    "complex_attribution_008": {
+      "required_context": [
+        "Marketing attribution data is in sessions table with utm_source, utm_medium, utm_campaign",
+        "Last-touch attribution credits the most recent session before purchase",
+        "Use window function ROW_NUMBER() OVER (PARTITION BY purchase_id ORDER BY session_start DESC)",
+        "JOIN purchases with sessions on user_id",
+        "Filter for sessions that occurred before the purchase timestamp"
+      ],
+      "relevant_tables": ["purchases", "sessions"],
+      "relevant_columns": ["utm_source", "session_start", "purchase_timestamp", "amount_usd", "user_id"]
+    },
+    "medium_tier_revenue_009": {
+      "required_context": [
+        "users table has subscription_tier column (free, starter, professional, enterprise)",
+        "purchases table has amount_usd for purchase values",
+        "JOIN users and purchases on user_id",
+        "Use AVG(amount_usd) for average purchase value",
+        "GROUP BY subscription_tier"
+      ],
+      "relevant_tables": ["users", "purchases"],
+      "relevant_columns": ["subscription_tier", "amount_usd", "user_id"]
+    },
+    "medium_geographic_010": {
+      "required_context": [
+        "users table has country column with country codes",
+        "events table tracks all user interactions",
+        "JOIN events and users on user_id",
+        "Calculate events_per_user as total_events / unique_users",
+        "Use HAVING clause to filter countries with minimum user threshold"
+      ],
+      "relevant_tables": ["events", "users"],
+      "relevant_columns": ["country", "user_id", "event_id"]
+    },
+    "complex_churn_011": {
+      "required_context": [
+        "Churn means users who stop using the product",
+        "30-day churn: users who have no events in the 30 days after signup",
+        "cohort column identifies signup month",
+        "Use created_at to define the 30-day window",
+        "LEFT JOIN events and check for absence of activity (COUNT = 0)",
+        "Calculate churn_rate as churned_users / cohort_size * 100"
+      ],
+      "relevant_tables": ["users", "events"],
+      "relevant_columns": ["cohort", "created_at", "user_id", "event_timestamp"]
+    },
+    "simple_product_012": {
+      "required_context": [
+        "products table contains product catalog",
+        "category column categorizes products (software, hardware, services, training)",
+        "is_active boolean indicates if product is currently available",
+        "Filter WHERE category = 'software' AND is_active = true"
+      ],
+      "relevant_tables": ["products"],
+      "relevant_columns": ["product_id", "product_name", "category", "is_active", "price_usd"]
+    },
+    "medium_session_conversion_013": {
+      "required_context": [
+        "sessions table has converted boolean flag indicating if session resulted in conversion",
+        "utm_source identifies traffic source",
+        "Conversion rate = (converted sessions / total sessions) * 100",
+        "Use CASE statement to count converted sessions",
+        "GROUP BY utm_source"
+      ],
+      "relevant_tables": ["sessions"],
+      "relevant_columns": ["utm_source", "converted", "session_start"]
+    },
+    "complex_margin_014": {
+      "required_context": [
+        "products table has cost_usd for product costs",
+        "purchases table has amount_usd (revenue) and discount_amount_usd",
+        "Net revenue = amount_usd - discount_amount_usd",
+        "Gross profit = Net revenue - (cost_usd * quantity)",
+        "Profit margin % = (gross_profit / net_revenue) * 100",
+        "Use NULLIF to handle division by zero"
+      ],
+      "relevant_tables": ["purchases", "products"],
+      "relevant_columns": ["amount_usd", "discount_amount_usd", "cost_usd", "quantity", "category"]
+    },
+    "medium_weekly_trend_015": {
+      "required_context": [
+        "users table has created_at for signup date",
+        "Use DATE_TRUNC('week', created_at) to group by week",
+        "Last 3 months is approximately 90 days",
+        "COUNT new signups per week",
+        "ORDER BY week to show trend"
+      ],
+      "relevant_tables": ["users"],
+      "relevant_columns": ["created_at"]
+    },
+    "complex_ltv_016": {
+      "required_context": [
+        "Lifetime Value (LTV) is total revenue generated by a user",
+        "Acquisition source is the utm_source of the first session",
+        "Use FIRST_VALUE() window function to get first touch utm_source",
+        "Sum all purchases per user for total LTV",
+        "Calculate average LTV per acquisition source",
+        "Some users may have zero purchases (use COALESCE)"
+      ],
+      "relevant_tables": ["users", "sessions", "purchases"],
+      "relevant_columns": ["utm_source", "session_start", "created_at", "user_id", "amount_usd"]
+    },
+    "medium_time_to_purchase_017": {
+      "required_context": [
+        "users.created_at is signup timestamp",
+        "Find MIN(purchase_timestamp) for first purchase",
+        "Use DATEDIFF to calculate days between dates",
+        "Calculate both AVG and MEDIAN (PERCENTILE_CONT) for better insight",
+        "Only include users who made at least one purchase (use INNER JOIN)"
+      ],
+      "relevant_tables": ["users", "purchases"],
+      "relevant_columns": ["created_at", "purchase_timestamp", "user_id"]
+    },
+    "complex_product_affinity_018": {
+      "required_context": [
+        "Market basket analysis finds products frequently bought together",
+        "Self-join purchases table on user_id to find co-purchases",
+        "Products purchased within 1 day window are considered 'together'",
+        "Use p1.product_id < p2.product_id to avoid duplicate pairs",
+        "Support metric = frequency / total users",
+        "Filter for minimum support threshold (e.g., 5 occurrences)"
+      ],
+      "relevant_tables": ["purchases", "products"],
+      "relevant_columns": ["product_id", "user_id", "purchase_timestamp", "purchase_id", "product_name"]
+    },
+    "medium_mobile_desktop_019": {
+      "required_context": [
+        "sessions table has device_type (mobile, desktop, tablet)",
+        "purchases table links to sessions via session_id",
+        "Conversion rate = (purchases / sessions) * 100",
+        "Use LEFT JOIN to include sessions without purchases",
+        "Compare mobile vs desktop performance"
+      ],
+      "relevant_tables": ["sessions", "purchases"],
+      "relevant_columns": ["device_type", "session_id", "purchase_id"]
+    },
+    "simple_top_products_020": {
+      "required_context": [
+        "purchases table has quantity column for units sold",
+        "products table has product_name",
+        "JOIN on product_id",
+        "Use SUM(quantity) to get total units sold",
+        "ORDER BY quantity DESC and LIMIT 5 for top 5",
+        "Filter for last 30 days using purchase_timestamp"
+      ],
+      "relevant_tables": ["purchases", "products"],
+      "relevant_columns": ["quantity", "product_name", "purchase_timestamp", "product_id"]
+    }
+  }
+}

@@ -1,0 +1,307 @@
+{
+  "database": "analytics_warehouse",
+  "description": "Analytics data warehouse for a SaaS product with user behavior tracking",
+  "tables": [
+    {
+      "name": "events",
+      "description": "User interaction events tracked across the platform",
+      "columns": [
+        {
+          "name": "event_id",
+          "type": "STRING",
+          "description": "Unique identifier for the event"
+        },
+        {
+          "name": "user_id",
+          "type": "STRING",
+          "description": "ID of the user who triggered the event"
+        },
+        {
+          "name": "session_id",
+          "type": "STRING",
+          "description": "Session identifier"
+        },
+        {
+          "name": "event_type",
+          "type": "STRING",
+          "description": "Type of event (page_view, button_click, form_submit, purchase, etc.)"
+        },
+        {
+          "name": "event_timestamp",
+          "type": "TIMESTAMP",
+          "description": "When the event occurred (UTC)"
+        },
+        {
+          "name": "page_url",
+          "type": "STRING",
+          "description": "URL where the event occurred"
+        },
+        {
+          "name": "properties",
+          "type": "JSON",
+          "description": "Additional event properties as JSON (product_id, amount, category, etc.)"
+        },
+        {
+          "name": "device_type",
+          "type": "STRING",
+          "description": "Device type (mobile, desktop, tablet)"
+        },
+        {
+          "name": "country",
+          "type": "STRING",
+          "description": "User's country code"
+        }
+      ],
+      "primary_key": "event_id",
+      "partitioned_by": "DATE(event_timestamp)"
+    },
+    {
+      "name": "users",
+      "description": "User dimension table with demographics and segmentation",
+      "columns": [
+        {
+          "name": "user_id",
+          "type": "STRING",
+          "description": "Unique user identifier"
+        },
+        {
+          "name": "email",
+          "type": "STRING",
+          "description": "User email address"
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP",
+          "description": "When the user account was created"
+        },
+        {
+          "name": "subscription_tier",
+          "type": "STRING",
+          "description": "Subscription level (free, starter, professional, enterprise)"
+        },
+        {
+          "name": "cohort",
+          "type": "STRING",
+          "description": "User cohort based on signup month (YYYY-MM format)"
+        },
+        {
+          "name": "country",
+          "type": "STRING",
+          "description": "User's country code"
+        },
+        {
+          "name": "company_size",
+          "type": "STRING",
+          "description": "Company size bucket (1-10, 11-50, 51-200, 201-1000, 1000+)"
+        },
+        {
+          "name": "is_active",
+          "type": "BOOLEAN",
+          "description": "Whether the user is currently active"
+        },
+        {
+          "name": "last_login_at",
+          "type": "TIMESTAMP",
+          "description": "Most recent login timestamp"
+        }
+      ],
+      "primary_key": "user_id"
+    },
+    {
+      "name": "sessions",
+      "description": "User session metrics and attribution data",
+      "columns": [
+        {
+          "name": "session_id",
+          "type": "STRING",
+          "description": "Unique session identifier"
+        },
+        {
+          "name": "user_id",
+          "type": "STRING",
+          "description": "ID of the user"
+        },
+        {
+          "name": "session_start",
+          "type": "TIMESTAMP",
+          "description": "When the session started"
+        },
+        {
+          "name": "session_end",
+          "type": "TIMESTAMP",
+          "description": "When the session ended"
+        },
+        {
+          "name": "duration_seconds",
+          "type": "INTEGER",
+          "description": "Session duration in seconds"
+        },
+        {
+          "name": "page_views",
+          "type": "INTEGER",
+          "description": "Number of pages viewed in session"
+        },
+        {
+          "name": "utm_source",
+          "type": "STRING",
+          "description": "Marketing attribution source (google, facebook, direct, etc.)"
+        },
+        {
+          "name": "utm_medium",
+          "type": "STRING",
+          "description": "Marketing attribution medium (cpc, email, organic, etc.)"
+        },
+        {
+          "name": "utm_campaign",
+          "type": "STRING",
+          "description": "Marketing campaign name"
+        },
+        {
+          "name": "referrer",
+          "type": "STRING",
+          "description": "HTTP referrer URL"
+        },
+        {
+          "name": "device_type",
+          "type": "STRING",
+          "description": "Device type (mobile, desktop, tablet)"
+        },
+        {
+          "name": "converted",
+          "type": "BOOLEAN",
+          "description": "Whether this session resulted in a conversion"
+        }
+      ],
+      "primary_key": "session_id",
+      "foreign_keys": [
+        {
+          "column": "user_id",
+          "references": "users(user_id)"
+        }
+      ]
+    },
+    {
+      "name": "products",
+      "description": "Product catalog with categories and pricing",
+      "columns": [
+        {
+          "name": "product_id",
+          "type": "STRING",
+          "description": "Unique product identifier"
+        },
+        {
+          "name": "product_name",
+          "type": "STRING",
+          "description": "Product display name"
+        },
+        {
+          "name": "category",
+          "type": "STRING",
+          "description": "Product category (software, hardware, services, training)"
+        },
+        {
+          "name": "subcategory",
+          "type": "STRING",
+          "description": "Product subcategory"
+        },
+        {
+          "name": "price_usd",
+          "type": "DECIMAL(10,2)",
+          "description": "Product price in USD"
+        },
+        {
+          "name": "cost_usd",
+          "type": "DECIMAL(10,2)",
+          "description": "Product cost in USD (for margin calculations)"
+        },
+        {
+          "name": "is_active",
+          "type": "BOOLEAN",
+          "description": "Whether the product is currently available"
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP",
+          "description": "When the product was added to catalog"
+        }
+      ],
+      "primary_key": "product_id"
+    },
+    {
+      "name": "purchases",
+      "description": "Purchase transactions",
+      "columns": [
+        {
+          "name": "purchase_id",
+          "type": "STRING",
+          "description": "Unique purchase identifier"
+        },
+        {
+          "name": "user_id",
+          "type": "STRING",
+          "description": "ID of the purchasing user"
+        },
+        {
+          "name": "product_id",
+          "type": "STRING",
+          "description": "ID of the purchased product"
+        },
+        {
+          "name": "session_id",
+          "type": "STRING",
+          "description": "Session where purchase occurred"
+        },
+        {
+          "name": "purchase_timestamp",
+          "type": "TIMESTAMP",
+          "description": "When the purchase was completed"
+        },
+        {
+          "name": "quantity",
+          "type": "INTEGER",
+          "description": "Number of units purchased"
+        },
+        {
+          "name": "amount_usd",
+          "type": "DECIMAL(10,2)",
+          "description": "Total purchase amount in USD"
+        },
+        {
+          "name": "discount_amount_usd",
+          "type": "DECIMAL(10,2)",
+          "description": "Discount applied in USD"
+        },
+        {
+          "name": "payment_method",
+          "type": "STRING",
+          "description": "Payment method used (credit_card, paypal, bank_transfer)"
+        }
+      ],
+      "primary_key": "purchase_id",
+      "foreign_keys": [
+        {
+          "column": "user_id",
+          "references": "users(user_id)"
+        },
+        {
+          "column": "product_id",
+          "references": "products(product_id)"
+        },
+        {
+          "column": "session_id",
+          "references": "sessions(session_id)"
+        }
+      ]
+    }
+  ],
+  "common_queries": [
+    "Daily active users (DAU)",
+    "Revenue by product category",
+    "User retention cohorts",
+    "Conversion funnel analysis",
+    "Marketing attribution (first-touch, last-touch)",
+    "Average session duration by device",
+    "Churn analysis",
+    "Product performance metrics"
+  ]
+}
